@@ -15,39 +15,7 @@ import VolumeDownRounded from "@mui/icons-material/VolumeDownRounded";
 import { Fab, FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 
-/*
-const WallPaper = styled('div')({
-  position: 'absolute',
-  width: '100%',
-  height: '100%',
-  top: 0,
-  left: 0,
-  overflow: 'hidden',
-  background: 'linear-gradient(rgb(255, 38, 142) 0%, rgb(255, 105, 79) 100%)',
-  transition: 'all 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275) 0s',
-  '&:before': {
-    content: '""',
-    width: '140%',
-    height: '140%',
-    position: 'absolute',
-    top: '-40%',
-    right: '-50%',
-    background:
-      'radial-gradient(at center center, rgb(62, 79, 249) 0%, rgba(62, 79, 249, 0) 64%)',
-  },
-  '&:after': {
-    content: '""',
-    width: '140%',
-    height: '140%',
-    position: 'absolute',
-    bottom: '-50%',
-    left: '-30%',
-    background:
-      'radial-gradient(at center center, rgb(247, 237, 225) 0%, rgba(247, 237, 225, 0) 70%)',
-    transform: 'rotate(30deg)',
-  },
-});
-*/
+
 
 const Widget = styled("div")(({ theme }) => ({
   padding: 16,
@@ -61,19 +29,6 @@ const Widget = styled("div")(({ theme }) => ({
     theme.palette.mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.4)",
   backdropFilter: "blur(40px)",
 }));
-
-const CoverImage = styled("div")({
-  width: 100,
-  height: 100,
-  objectFit: "cover",
-  overflow: "hidden",
-  flexShrink: 0,
-  borderRadius: 8,
-  backgroundColor: "rgba(0,0,0,0.08)",
-  "& > img": {
-    width: "100%",
-  },
-});
 
 const TinyText = styled(Typography)({
   fontSize: "0.75rem",
@@ -89,6 +44,7 @@ export default function MusicPlayerSlider() {
 
   const [audioState, setAudioState] = useState(true);
   const audioRef = useRef();
+  const inputRef = useRef(null);
 
   //let startTime
   let stopTime, recordingTime;
@@ -102,48 +58,72 @@ export default function MusicPlayerSlider() {
     useState("ファイルを選択してください");
 
   useEffect(() => {
-    // マイクへのアクセス権を取得
-    navigator.getUserMedia =
-      navigator.getUserMedia || navigator.webkitGetUserMedia;
-    //audioのみtrue
-    navigator.getUserMedia(
-      {
-        audio: true,
-        video: false,
-      },
-      handleSuccess,
-      handleError
-    );
+
+    //mimeTypeの確認
+    /*
+    const types = ["video/webm",
+                  "audio/webm",
+                  "video/webm;codecs=vp8",
+                  "video/webm;codecs=daala",
+                  "video/webm;codecs=h264",
+                  "audio/webm;codecs=opus",
+                  "video/mpeg",
+                  "video/webm;codecs=vp9",
+                  "audio/mp4",
+                  "audio/3gpp"];
+
+    for (var i in types) {
+      console.log( types[i] + " をサポートしている？ " + (MediaRecorder.isTypeSupported(types[i]) ? "たぶん！" : "いいえ :("));
+      //alert( types[i] + " をサポートしている？ " + (MediaRecorder.isTypeSupported(types[i]) ? "たぶん！" : "いいえ :("));
+    }
+    */
+
+    //マイクへのアクセス権を取得
+    const mediaDevices = navigator.mediaDevices || ((navigator.mozGetUserMedia || navigator.webkitGetUserMedia || navigator.msGetUserMedia) ? {
+      getUserMedia(c) {
+          return new Promise(((y, n) => {
+              (navigator.mozGetUserMedia || navigator.webkitGetUserMedia).call(navigator, c, y, n);
+          }));
+      }
+    } : null);
+
+    mediaDevices.getUserMedia({
+      video: false,
+      audio: true
+    })
+    .then(function(stream) {
+      audioRef.current = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
+      // 音声データを貯める場所
+      let chunks = [];
+      // 録音が終わった後のデータをまとめる
+      audioRef.current.addEventListener("dataavailable", (ele) => {
+        if (ele.data.size > 0) {
+          chunks.push(ele.data);
+        }
+        // 音声データをセット
+      });
+      // 録音を開始したら状態を変える
+      audioRef.current.addEventListener("start", () => {
+        setAudioState(false);
+      });
+      // 録音がストップしたらchunkを空にして、録音状態を更新
+      audioRef.current.addEventListener("stop", () => {
+        const blob = new Blob(chunks /*, 'type': mimeType }*/);
+        setAudioState(true);
+        chunks = [];
+        const recAudio = document.querySelector("#recAudio");
+        //console.dir(recAudio)
+        recAudio.src = window.URL.createObjectURL(blob);
+      });
+    })
+    .catch(function(err) {
+      console.log(err);
+    });
   }, []);
 
-  const handleSuccess = (stream) => {
-    // レコーディングのインスタンスを作成
-    audioRef.current = new MediaRecorder(stream, {
-      mimeType: "video/webm;codecs=vp9",
-    });
-    // 音声データを貯める場所
-    let chunks = [];
-    // 録音が終わった後のデータをまとめる
-    audioRef.current.addEventListener("dataavailable", (ele) => {
-      if (ele.data.size > 0) {
-        chunks.push(ele.data);
-      }
-      // 音声データをセット
-    });
-    // 録音を開始したら状態を変える
-    audioRef.current.addEventListener("start", () => {
-      setAudioState(false);
-    });
-    // 録音がストップしたらchunkを空にして、録音状態を更新
-    audioRef.current.addEventListener("stop", () => {
-      const blob = new Blob(chunks /*, 'type': mimeType }*/);
-      setAudioState(true);
-      chunks = [];
-      const recAudio = document.querySelector("#recAudio");
-      //console.dir(recAudio)
-      recAudio.src = window.URL.createObjectURL(blob);
-    });
-  };
+  
   // 録音開始
   const handleStart = () => {
     audioRef.current.start();
@@ -154,10 +134,7 @@ export default function MusicPlayerSlider() {
     audioRef.current.stop();
   };
 
-  const handleError = () => {
-    alert("エラーです。");
-  };
-
+  
   //教材音声再生
   const audioStart = () => {
     const teachingAudio = document.querySelector("#teachingAudio");
@@ -180,9 +157,7 @@ export default function MusicPlayerSlider() {
   const stopTimer = () => {
     const teachingAudio = document.querySelector("#teachingAudio");
     stopTime = teachingAudio.currentTime;
-    //setStopTime(teachingAudio.currentTime);
     recordingTime = (stopTime - startTime) * 1000; //sleepのために*1000
-    //setRecordingTime((stopTime - startTime) * 1000);
     clearInterval(playTimer);
   };
 
@@ -252,8 +227,6 @@ export default function MusicPlayerSlider() {
     reader.onload = () => {
       setTeachingAudioPath(reader.result);
       setTeachingAudioName(file.name);
-      //console.log(reader);
-      //console.log(file);
     };
     reader.readAsDataURL(file); //<=ここから新しいイベントリス名を作れる？Reactではきびいかも?
   };
@@ -268,6 +241,11 @@ export default function MusicPlayerSlider() {
   const repeatingTimesChange = (event) => {
     setRepeatingTimes(event.target.value);
   };
+
+  //fileuploadButton
+  const clickFileUploadButton = () => {
+    inputRef.current.click();
+  }
 
   //---------------Testing--------------------------------
 
@@ -429,8 +407,8 @@ export default function MusicPlayerSlider() {
             <MenuItem value={10}>10</MenuItem>
           </Select>
         </FormControl>
-        <InputLabel>
-            <input type="file" onChange={selectFile} />
+        <input type="file" onChange={selectFile} ref={inputRef} hidden/>
+        <InputLabel onClick={clickFileUploadButton}>
             <Fab color="primary" aria-label="add">
               <AddIcon />
             </Fab>
